@@ -55,7 +55,7 @@ contract MonitoringService is Utils {
     event Withdrawn(address indexed account, uint amount);
 
     /*
-     *  Modifiers 
+     *  Modifiers
      */
 
     modifier canMonitor(address _ms_address) {
@@ -250,7 +250,7 @@ contract MonitoringService is Utils {
         // Only allowed to claim, if channel is settled
         // Channel is settled if it's data has been deleted
         uint8 channel_state;
-        (, , channel_state) = token_network.getChannelInfo(
+        (, , , channel_state) = token_network.getChannelInfo(
             closing_participant,
             non_closing_participant
         );

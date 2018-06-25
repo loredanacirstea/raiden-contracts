@@ -66,6 +66,10 @@ contract TokenNetwork is Utils {
     }
 
     struct Channel {
+        // We need this block number in all the signed messages, in order to avoid replay
+        // attacks when the channel is re-opened.
+        uint256 open_block_number;
+
         // After opening the channel this value represents the settlement window. This is the
         // number of blocks that need to be mined between closing the channel uncooperatively
         // and settling the channel.
@@ -96,7 +100,8 @@ contract TokenNetwork is Utils {
         bytes32 indexed channel_identifier,
         address indexed participant1,
         address indexed participant2,
-        uint256 settle_timeout
+        uint256 settle_timeout,
+        uint256 open_block_number
     );
 
     event ChannelNewDeposit(
@@ -197,15 +202,23 @@ contract TokenNetwork is Utils {
         bytes32 channel_identifier = getChannelIdentifier(participant1, participant2);
         Channel storage channel = channels[channel_identifier];
 
+        require(channel.open_block_number == 0);
         require(channel.settle_block_number == 0);
         require(channel.state == 0);
 
         // Store channel information
+        channel.open_block_number = block.number;
         channel.settle_block_number = settle_timeout;
         // Mark channel as opened
         channel.state = 1;
 
-        emit ChannelOpened(channel_identifier, participant1, participant2, settle_timeout);
+        emit ChannelOpened(
+            channel_identifier,
+            channel.open_block_number,
+            participant1,
+            participant2,
+            settle_timeout
+        );
 
         return channel_identifier;
     }
@@ -296,6 +309,7 @@ contract TokenNetwork is Utils {
 
         verifyWithdrawSignatures(
             channel_identifier,
+            channel.open_block_number,
             participant,
             partner,
             total_withdraw,
@@ -351,7 +365,7 @@ contract TokenNetwork is Utils {
         channel.participants[msg.sender].is_the_closer = true;
 
         // This is the block number at which the channel can be settled.
-        channel.settle_block_number += uint256(block.number);
+        channel.settle_block_number += block.number;
 
         // Nonce 0 means that the closer never received a transfer, therefore never received a
         // balance proof, or he is intentionally not providing the latest transfer, in which case
@@ -359,6 +373,7 @@ contract TokenNetwork is Utils {
         if (nonce > 0) {
             recovered_partner_address = recoverAddressFromBalanceProof(
                 channel_identifier,
+                channel.open_block_number,
                 balance_hash,
                 nonce,
                 additional_hash,
@@ -409,6 +424,7 @@ contract TokenNetwork is Utils {
         // to make this transaction. E.g. a monitoring service.
         recovered_non_closing_participant = recoverAddressFromBalanceProofUpdateMessage(
             channel_identifier,
+            channel.open_block_number,
             balance_hash,
             nonce,
             additional_hash,
@@ -418,6 +434,7 @@ contract TokenNetwork is Utils {
 
         recovered_closing_participant = recoverAddressFromBalanceProof(
             channel_identifier,
+            channel.open_block_number,
             balance_hash,
             nonce,
             additional_hash,
@@ -744,6 +761,7 @@ contract TokenNetwork is Utils {
 
         participant1 = recoverAddressFromCooperativeSettleSignature(
             channel_identifier,
+            channel.open_block_number,
             participant1_address,
             participant1_balance,
             participant2_address,
@@ -753,6 +771,7 @@ contract TokenNetwork is Utils {
 
         participant2 = recoverAddressFromCooperativeSettleSignature(
             channel_identifier,
+            channel.open_block_number,
             participant1_address,
             participant1_balance,
             participant2_address,
@@ -975,7 +994,7 @@ contract TokenNetwork is Utils {
     function getChannelInfo(address participant1, address participant2)
         view
         external
-        returns (bytes32, uint256, uint8)
+        returns (bytes32, uint256, uint256, uint8)
     {
         bytes32 channel_identifier;
 
@@ -984,6 +1003,7 @@ contract TokenNetwork is Utils {
 
         return (
             channel_identifier,
+            channel.open_block_number,
             channel.settle_block_number,
             channel.state
         );
@@ -1044,6 +1064,7 @@ contract TokenNetwork is Utils {
 
     function recoverAddressFromBalanceProof(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         bytes32 balance_hash,
         uint256 nonce,
         bytes32 additional_hash,
@@ -1058,6 +1079,7 @@ contract TokenNetwork is Utils {
             nonce,
             additional_hash,
             channel_identifier,
+            open_block_number,
             address(this),
             chain_id
         ));
@@ -1067,6 +1089,7 @@ contract TokenNetwork is Utils {
 
     function recoverAddressFromBalanceProofUpdateMessage(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         bytes32 balance_hash,
         uint256 nonce,
         bytes32 additional_hash,
@@ -1082,6 +1105,7 @@ contract TokenNetwork is Utils {
             nonce,
             additional_hash,
             channel_identifier,
+            open_block_number,
             address(this),
             chain_id,
             closing_signature
@@ -1092,6 +1116,7 @@ contract TokenNetwork is Utils {
 
     function recoverAddressFromCooperativeSettleSignature(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant1,
         uint256 participant1_balance,
         address participant2,
@@ -1108,6 +1133,7 @@ contract TokenNetwork is Utils {
             participant2,
             participant2_balance,
             channel_identifier,
+            open_block_number,
             address(this),
             chain_id
         ));
@@ -1117,6 +1143,7 @@ contract TokenNetwork is Utils {
 
     function recoverAddressFromWithdrawMessage(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant,
         uint256 total_withdraw,
         bytes signature
@@ -1129,6 +1156,7 @@ contract TokenNetwork is Utils {
             participant,
             total_withdraw,
             channel_identifier,
+            open_block_number,
             address(this),
             chain_id
         ));
@@ -1138,6 +1166,7 @@ contract TokenNetwork is Utils {
 
     function verifyWithdrawSignatures(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant,
         address partner,
         uint256 total_withdraw,
@@ -1152,12 +1181,14 @@ contract TokenNetwork is Utils {
 
         recovered_participant_address = recoverAddressFromWithdrawMessage(
             channel_identifier,
+            open_block_number,
             participant,
             total_withdraw,
             participant_signature
         );
         recovered_partner_address = recoverAddressFromWithdrawMessage(
             channel_identifier,
+            open_block_number,
             participant,
             total_withdraw,
             partner_signature
