@@ -98,10 +98,10 @@ contract TokenNetwork is Utils {
 
     event ChannelOpened(
         bytes32 indexed channel_identifier,
-        address indexed participant1,
-        address indexed participant2,
+        address participant1,
+        address participant2,
         uint256 settle_timeout,
-        uint256 open_block_number
+        uint256 indexed open_block_number
     );
 
     event ChannelNewDeposit(
@@ -214,10 +214,10 @@ contract TokenNetwork is Utils {
 
         emit ChannelOpened(
             channel_identifier,
-            channel.open_block_number,
             participant1,
             participant2,
-            settle_timeout
+            settle_timeout,
+            channel.open_block_number
         );
 
         return channel_identifier;
@@ -285,10 +285,12 @@ contract TokenNetwork is Utils {
 
         bytes32 channel_identifier;
         uint256 total_deposit;
-        uint256 current_withdraw;
 
         channel_identifier = getChannelIdentifier(participant, partner);
         Channel storage channel = channels[channel_identifier];
+
+        // Channel must be open
+        require(channel.state == 1);
 
         Participant storage participant_state = channel.participants[participant];
         Participant storage partner_state = channel.participants[partner];
@@ -297,15 +299,18 @@ contract TokenNetwork is Utils {
 
         // Using the total_withdraw (monotonically increasing) in the signed message ensures
         // that we do not allow reply attack to happen, by using the same withdraw proof twice.
-        current_withdraw = total_withdraw - participant_state.withdrawn_amount;
 
-        participant_state.withdrawn_amount += current_withdraw;
+        // !Important to set the state before the token transfer takes place
+        // to avoid a reentrancy attack
+        participant_state.withdrawn_amount = total_withdraw;
 
-        // Do the tokens transfer
-        require(token.transfer(participant, current_withdraw));
-
-        // Channel must be open
-        require(channel.state == 1);
+        // Calculates current withdrawn amount and does the tokens transfer
+        calculateVerifyTransferCurrentWithdrawnAmount(
+            participant,
+            total_withdraw,
+            participant_state.withdrawn_amount,
+            participant_state.withdrawn_amount
+        );
 
         verifyWithdrawSignatures(
             channel_identifier,
@@ -317,21 +322,20 @@ contract TokenNetwork is Utils {
             partner_signature
         );
 
-        require(current_withdraw > 0);
-
-        // Underflow check
-        require(participant_state.withdrawn_amount >= current_withdraw);
-        require(participant_state.withdrawn_amount == total_withdraw);
-
         // Entire withdrawn amount must not be bigger than the entire channel deposit
         require(participant_state.withdrawn_amount <= (total_deposit - partner_state.withdrawn_amount));
 
-        require(total_deposit >= participant_state.deposit);
-        require(total_deposit >= partner_state.deposit);
+        // This must never happen. These cases are alredy checked in the setTotalDeposit function
+        assert(total_deposit >= participant_state.deposit);
+        assert(total_deposit >= partner_state.deposit);
 
-        // A withdraw should never happen if a participant already has a balance proof in storage
+        // A withdraw must never happen if a participant already has a balance proof in storage
         assert(participant_state.nonce == 0);
         assert(partner_state.nonce == 0);
+
+        // This should never fail. Added to make sure there are no unaccounted
+        // state changes in the private functions.
+        assert(participant_state.withdrawn_amount == total_withdraw);
 
         emit ChannelWithdraw(channel_identifier, participant, participant_state.withdrawn_amount);
     }
@@ -753,11 +757,12 @@ contract TokenNetwork is Utils {
         address participant1;
         address participant2;
         uint256 total_available_deposit;
-        uint256 initial_state;
 
         channel_identifier = getChannelIdentifier(participant1_address, participant2_address);
         Channel storage channel = channels[channel_identifier];
-        initial_state = channel.state;
+
+        // The channel must be open
+        require(channel.state == 1);
 
         participant1 = recoverAddressFromCooperativeSettleSignature(
             channel_identifier,
@@ -801,9 +806,6 @@ contract TokenNetwork is Utils {
         if (participant2_balance > 0) {
             require(token.transfer(participant2, participant2_balance));
         }
-
-        // The channel must be open
-        require(initial_state == 1);
 
         // The provided addresses must be the same as the recovered ones
         require(participant1 == participant1_address);
@@ -1061,6 +1063,27 @@ contract TokenNetwork is Utils {
     /*
      * Internal Functions
      */
+
+    function calculateVerifyTransferCurrentWithdrawnAmount(
+        address participant,
+        uint256 participant_total_withdraw,
+        uint256 participant_already_withdrawn_amount,
+        uint256 channel_total_deposit
+    )
+        view
+        internal
+    {
+        uint256 current_withdraw = (
+            participant_total_withdraw -
+            participant_already_withdrawn_amount
+        );
+        require(current_withdraw > 0);
+
+        // Underflow check
+        require(current_withdraw <= participant_total_withdraw);
+
+        require(token.transfer(participant, current_withdraw));
+    }
 
     function recoverAddressFromBalanceProof(
         bytes32 channel_identifier,

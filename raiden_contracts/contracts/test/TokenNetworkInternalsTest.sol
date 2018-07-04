@@ -136,6 +136,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
 
     function recoverAddressFromBalanceProofPublic(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         bytes32 balance_hash,
         uint256 nonce,
         bytes32 additional_hash,
@@ -147,6 +148,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
     {
         return recoverAddressFromBalanceProof(
             channel_identifier,
+            open_block_number,
             balance_hash,
             nonce,
             additional_hash,
@@ -156,6 +158,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
 
     function recoverAddressFromBalanceProofUpdateMessagePublic(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         bytes32 balance_hash,
         uint256 nonce,
         bytes32 additional_hash,
@@ -168,6 +171,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
     {
         return recoverAddressFromBalanceProofUpdateMessage(
             channel_identifier,
+            open_block_number,
             balance_hash,
             nonce,
             additional_hash,
@@ -178,6 +182,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
 
     function recoverAddressFromCooperativeSettleSignaturePublic(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant1,
         uint256 participant1_balance,
         address participant2,
@@ -190,6 +195,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
     {
         return recoverAddressFromCooperativeSettleSignature(
             channel_identifier,
+            open_block_number,
             participant1,
             participant1_balance,
             participant2,
@@ -200,6 +206,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
 
     function recoverAddressFromWithdrawMessagePublic(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant,
         uint256 amount_to_withdraw,
         bytes signature
@@ -210,6 +217,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
     {
         return recoverAddressFromWithdrawMessage(
             channel_identifier,
+            open_block_number,
             participant,
             amount_to_withdraw,
             signature
@@ -218,6 +226,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
 
     function verifyWithdrawSignaturesPublic(
         bytes32 channel_identifier,
+        uint256 open_block_number,
         address participant,
         address partner,
         uint256 total_withdraw,
@@ -229,6 +238,7 @@ contract TokenNetworkInternalsTest is TokenNetwork {
     {
         return verifyWithdrawSignatures(
             channel_identifier,
+            open_block_number,
             participant,
             partner,
             total_withdraw,
