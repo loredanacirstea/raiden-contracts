@@ -20,11 +20,13 @@ def custom_token_params(request):
 @pytest.fixture()
 def custom_token(deploy_tester_contract, custom_token_params):
     """Deploy CustomToken contract"""
-    return deploy_tester_contract(
-        CONTRACT_CUSTOM_TOKEN,
+    weth = deploy_tester_contract(
+        'WETH9',
         [],
-        custom_token_params
+        []
     )
+    weth.functions.deposit().transact({'value': 1000000})
+    return weth
 
 
 @pytest.fixture()

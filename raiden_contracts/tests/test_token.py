@@ -10,24 +10,24 @@ def test_token_mint(web3, custom_token, get_accounts):
 
     token_pre_balance = web3.eth.getBalance(token.address)
     tokens_a = 50 * multiplier
-    token.functions.mint(tokens_a).transact({'from': A})
+    token.functions.deposit().transact({'from': A, 'value': tokens_a})
     assert token.functions.balanceOf(A).call() == tokens_a
     assert token.functions.balanceOf(B).call() == 0
     assert token.functions.totalSupply().call() == supply + tokens_a
     assert web3.eth.getBalance(token.address) == token_pre_balance
 
-    tokens_b = 50 * multiplier
-    token.functions.mintFor(tokens_b, B).transact({'from': A})
-    assert token.functions.balanceOf(A).call() == tokens_a
-    assert token.functions.balanceOf(B).call() == tokens_b
-    assert token.functions.totalSupply().call() == supply + tokens_a + tokens_b
-    assert web3.eth.getBalance(token.address) == token_pre_balance
+    # tokens_b = 50 * multiplier
+    # token.functions.mintFor(tokens_b, B).transact({'from': A})
+    # assert token.functions.balanceOf(A).call() == tokens_a
+    # assert token.functions.balanceOf(B).call() == tokens_b
+    # assert token.functions.totalSupply().call() == supply + tokens_a + tokens_b
+    # assert web3.eth.getBalance(token.address) == token_pre_balance
 
 
 def test_approve_transfer(web3, custom_token, get_accounts):
     (A, B) = get_accounts(2)
     token = custom_token
-    token.functions.mint(50).transact({'from': A})
+    token.functions.deposit().transact({'from': A, 'value': 50})
     initial_balance_A = token.functions.balanceOf(A).call()
     initial_balance_B = token.functions.balanceOf(B).call()
     to_transfer = 20
@@ -55,7 +55,7 @@ def test_token_transfer_funds(web3, custom_token, get_accounts, txn_gas):
     with pytest.raises(TransactionFailed):
         token.functions.transferFunds().transact({'from': owner})
 
-    token.functions.mint(50).transact({'from': A})
+    token.functions.deposit().transact({'from': A, 'value': 50})
     assert web3.eth.getBalance(token.address) == 0
 
 

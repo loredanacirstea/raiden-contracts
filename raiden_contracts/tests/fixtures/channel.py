@@ -65,7 +65,8 @@ def assign_tokens(owner, token_network, custom_token):
 
         if amount > owner_balance:
             minted = amount - owner_balance
-            custom_token.functions.mint(minted).transact({'from': participant})
+            # custom_token.functions.mint(minted).transact({'from': participant})
+            custom_token.functions.deposit().transact({'from': participant, 'value': minted})
         assert custom_token.functions.balanceOf(participant).call() >= deposit
         custom_token.functions.approve(token_network.address, deposit).transact({'from': participant})
         assert custom_token.functions.allowance(

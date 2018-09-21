@@ -12,7 +12,7 @@ def test_deposit_channel_call(token_network, custom_token, create_channel, get_a
     deposit_A = 200
     channel_identifier = create_channel(A, B)[0]
 
-    custom_token.functions.mint(deposit_A).transact({'from': A})
+    custom_token.functions.deposit().transact({'from': A, 'value': deposit_A})
 
     custom_token.functions.approve(token_network.address, deposit_A).transact({'from': A})
 
@@ -127,7 +127,7 @@ def test_deposit_notapproved(
     channel_identifier = create_channel(A, B)[0]
     deposit_A = 1
 
-    custom_token.functions.mint(deposit_A).transact({'from': A})
+    custom_token.functions.deposit().transact({'from': A, 'value': deposit_A})
     balance = custom_token.functions.balanceOf(A).call()
     assert balance >= deposit_A
 
